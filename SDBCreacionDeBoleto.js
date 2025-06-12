@@ -8,9 +8,16 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
     function post(requestBody) {
         try {
             var salesOrderId = createSalesOrder(requestBody);
+            if (!salesOrderId) throw new Error("No se pudo crear la orden de venta.");
+
             var ticketGroup = createTicketGroup(requestBody, salesOrderId);
-            createTicket(requestBody, ticketGroup);
-            createInvoice(salesOrderId); //Se puede llamar desde createSalesOrder
+            if (!ticketGroup) throw new Error("No se pudo crear el grupo de boletos.");
+
+            var tickets = createTicket(requestBody, ticketGroup);
+            if (!tickets) throw new Error("No se pudo crear el boleto.");
+
+            var invoice = createInvoice(salesOrderId); //Se puede llamar desde createSalesOrder
+            if (!invoice) throw new Error("No se pudo crear la factura.");
 
         } catch (error) {
             log.error('ERROR Post', error);
@@ -19,6 +26,10 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
 
     function createTicket(requestBody, ticketGroupId) { //Crea Boleto 
         try {
+
+            const totalBoletos = requestBody.boletos.length;
+            let createdCount = 0;
+
             requestBody.boletos.forEach(function (ticket) {
 
                 var newTicketRecord = record.create({
@@ -62,12 +73,14 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
                 newTicketRecord.setValue({ fieldId: 'custrecord_comision', value: ticket.comision });
 
                 var boletoId = newTicketRecord.save();
+                if (boletoId) createdCount++;
                 log.debug('Boleto creado', 'ID: ' + boletoId);
             });
+            return createdCount === totalBoletos; //retorna true si se crearon todos los boletos
 
         } catch (error) {
             log.error('ERROR CreateTicket', error);
-            return;
+            throw e;
         }
     }
 
@@ -125,10 +138,10 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
                 newRoute.setValue({ fieldId: "custrecord_cabina", value: route.cabina });
                 newRoute.setValue({ fieldId: "custrecord_familiatarifaria", value: route.familiaTarifaria });
 
-                newRoute.save();
+                var routesCreated = newRoute.save();
             }
-            log.debug('Grupo de boletos creado');
-            log.debug('Rutas de boleto creadas');
+            log.debug('Grupo de boletos creado', ticketGroup);
+            log.debug('Rutas de boleto creadas', routesCreated);
             return ticketGroup;
 
         } catch (e) {
