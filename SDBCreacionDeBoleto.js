@@ -245,7 +245,7 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
         return routeCreated;
     }
 
-    //crea factura se compra al proveedor externo
+    //crea factura de compra al proveedor externo
     function createPurchaseBill(requestBody, ticketGroup, subsidiaryId) {
         var tickets = requestBody.boletos || [];
         var rutas = (requestBody.routings || []).map(function (r) { return r.ruta; });
@@ -432,7 +432,6 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
 
     function createCustomerPayment(invoiceId, requestBody) {
         const ticket = requestBody.boletos[0];
-
 
         const PAYMENT_ACCOUNTS = {//Define las cuentas por subsidiaria y método de pago
             2: { //Casa de incentivos
