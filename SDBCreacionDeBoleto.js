@@ -8,7 +8,6 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
     function post(requestBody) {
         try {
             const ticketType = requestBody.tipoTicket;
-
             switch (ticketType) {
                 case "EX":
                     log.debug("Procesando Boleto tipo EX");
@@ -23,7 +22,7 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
 
                         requestBody.boletos.forEach(function (ticket) {
 
-                            const newTicketId = createTicket(ticket, ticketGroup);
+                            const newTicketId = createTicket(ticketType, ticket, ticketGroup);
                             if (ticket.exchange) {
                                 exchanges.push({
                                     oldNumber: ticket.exchange,
@@ -35,7 +34,7 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
 
                         // Marcar los boletos originales como modificados
                         if (exchanges.length > 0) {
-                            markOriginalTicketsAsExchanged(exchanges);
+                            markReferenceTickets(exchanges, 'EX');
                         }
 
                         if (totalAmmount > 0) { //Si tiene diferencias de monto entonces si creo los registros correspondientes.
@@ -50,8 +49,42 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
                     break;
 
                 case "EMD":
-                    // Lógica para EMD
                     log.debug("Procesando Boleto tipo EMD");
+                    var subsidiaryId = checkSubsidiary(requestBody.empresa); //Chequeo que exista la subsidiaria
+                    var customerData = requestBody.remarks;
+                    var customer = findCustomer(customerData, subsidiaryId);
+
+                    if (subsidiaryId && customer) {
+                        const emds = [];          // [{ oldNumber, newId }]
+                        let totalAmmount = 0;
+                        const ticketGroup = createTicketGroup(requestBody);
+
+                        requestBody.boletos.forEach(function (ticket) {
+
+                            const newTicketId = createTicket(ticketType, ticket, ticketGroup);
+                            if (ticket.emdnumero) {
+                                emds.push({
+                                    oldNumber: ticket.emdnumero,
+                                    newId: newTicketId
+                                });
+                            }
+                            totalAmmount += parseFloat(ticket.total || 0);
+                        });
+
+                        // Marcar los boletos originales como modificados
+                        if (emds.length > 0) {
+                            markReferenceTickets(emds, 'EMD');
+                        }
+
+                        if (totalAmmount > 0) { //Si tiene diferencias de monto entonces si creo los registros correspondientes.
+                            createPurchaseBill(requestBody, ticketGroup, subsidiaryId) //Se crea la Factura de compra al vendor externo (sea intercompany o no la voy a crear desde la subsidiaria actual)
+                            if (subsidiaryId != customer.subsidiaryId) {//Caso intercompany entonces agrego factura de compra y venta.
+                                createIntercompanyInvoice(requestBody, subsidiaryId, customer.subsidiaryId, ticketGroup)
+                                createPurchaseIntercompanyBill(requestBody, customer.subsidiaryId, ticketGroup, subsidiaryId)
+                            }
+                            createSalesOrder(requestBody, customer, ticketGroup); //Creo sale order para el cliente final
+                        }
+                    }
                     break;
 
                 case "ET": // Lógica para Boleto común
@@ -64,7 +97,7 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
                         const ticketGroup = createTicketGroup(requestBody);
 
                         requestBody.boletos.forEach(function (ticket) {
-                            createTicket(ticket, ticketGroup);
+                            createTicket(ticketType, ticket, ticketGroup);
                         })
 
                         createPurchaseBill(requestBody, ticketGroup, subsidiaryId) //Se crea la Factura de compra al vendor externo (sea intercompany o no la voy a crear desde la subsidiaria actual)
@@ -83,7 +116,6 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
                 success: true,
                 message: 'Solicitud ejecutada',
             };
-
         } catch (error) {
             logError(error, {
                 module: 'post',
@@ -97,7 +129,7 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
         }
     }
 
-    function createTicket(ticket, ticketGroupId) { //Crea Boleto 
+    function createTicket(ticketType, ticket, ticketGroupId) { //Crea Boleto 
         var newTicketRecord = record.create({
             type: "customrecord_boleto",
             isDynamic: true
@@ -112,6 +144,7 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
         newTicketRecord.setValue({ fieldId: 'custrecord_origen', value: ticket.aerolinea.origen });
         newTicketRecord.setValue({ fieldId: 'custrecord_codigodegrupo', value: ticket.aerolinea.codeGroup });
         newTicketRecord.setValue({ fieldId: 'custrecord_numeroboleto', value: ticket.boleto });
+        newTicketRecord.setValue({ fieldId: 'custrecord_sdb_ticket_type', value: ticketType });
         if (ticket.fecha) newTicketRecord.setValue({ fieldId: 'custrecord_fecha', value: new Date(ticket.fecha) });
         if (ticket.fechareserva) newTicketRecord.setValue({ fieldId: 'custrecord_fechareserva', value: new Date(ticket.fechareserva) });
         if (ticket.horareserva) newTicketRecord.setValue({ fieldId: 'custrecord_horareserva', value: new Date(ticket.horareserva) });
@@ -133,7 +166,7 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
         newTicketRecord.setValue({ fieldId: 'custrecord_pagotc', value: ticket.pagotc });
         newTicketRecord.setValue({ fieldId: 'custrecord_void', value: ticket.void });
         //newTicketRecord.setValue({ fieldId: 'custrecord_exchange', value: ticket.exchange });
-        newTicketRecord.setValue({ fieldId: 'custrecord_emdnumero', value: ticket.emdnumero });
+        //newTicketRecord.setValue({ fieldId: 'custrecord_emdnumero', value: ticket.emdnumero });
         newTicketRecord.setValue({ fieldId: 'custrecord_numero', value: ticket.numero });
         newTicketRecord.setValue({ fieldId: 'custrecord_numpasajero', value: ticket.numPasajero });
         newTicketRecord.setValue({ fieldId: 'custrecord_comision', value: ticket.comision });
@@ -336,7 +369,6 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
             log.debug("#####Sales Order creada URL ", "https://11341630-sb1.app.netsuite.com/app/accounting/transactions/salesord.nl?id=" + salesOrderId + "&whence=");
             createInvoice(salesOrderId, ticketGroup, requestBody);
         }
-
         return salesOrderId;
     }
 
@@ -900,7 +932,7 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
         else { return 3012 } //default vendor 
     }
 
-    function markOriginalTicketsAsExchanged(boletoData) {
+    function markReferenceTickets(boletoData, type) {
         boletoData.forEach(function ({ oldNumber, newId }) {
             // Buscar el ID del registro del boleto por número
             const oldBoletoSearch = search.create({
@@ -916,24 +948,47 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
             if (results.length > 0) {
                 const oldBoletoId = results[0].getValue('internalid');
 
-                record.submitFields({
-                    type: 'customrecord_boleto',
-                    id: oldBoletoId,
-                    values: {
-                        custrecord_sdb_edited_ticket: true,
-                        custrecord_sdb_new_ticket_exchange: newId  //Referencia en el viejo boleto al nuevo boleto
-                    }
-                });
+                if (type == 'EX') {
+                    record.submitFields({
+                        type: 'customrecord_boleto',
+                        id: oldBoletoId,
+                        values: {
+                            custrecord_sdb_edited_ticket: true,
+                            custrecord_sdb_new_ticket_exchange: newId  //Referencia al boleto nuevo EXCHANGE
+                        }
+                    });
 
-                record.submitFields({
-                    type: 'customrecord_boleto',
-                    id: newId,
-                    values: {
-                        custrecord_exchange: oldBoletoId  //Referencia al boleto viejo en el nuevo boleto
-                    }
-                });
+                    record.submitFields({
+                        type: 'customrecord_boleto',
+                        id: newId,
+                        values: {
+                            custrecord_exchange: oldBoletoId  //Referencia al boleto viejo el cual recibió Exchange
+                        }
+                    });
 
-                log.debug('Boletos marcados como modificados', oldBoletoId, newId);
+                    log.debug('Boletos marcados como modificados', oldBoletoId, newId);
+                }
+                else { //Es un emd 
+                    record.submitFields({
+                        type: 'customrecord_boleto',
+                        id: oldBoletoId,
+                        values: {
+                            custrecord_sdb_edited_ticket: true,
+                            custrecord_sdb_emd_reference: newId  //Referencia al boleto nuevo EMD
+                        }
+                    });
+
+                    record.submitFields({
+                        type: 'customrecord_boleto',
+                        id: newId,
+                        values: {
+                            custrecord_emdnumero: oldBoletoId  //Referencia al boleto viejo el cual recibió EMD
+                        }
+                    });
+
+                    log.debug('Boletos marcados como modificados', oldBoletoId, newId);
+                }
+
             } else {
                 throw new Error('Boleto no encontrado' + oldNumber);
             }
