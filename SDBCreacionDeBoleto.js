@@ -275,7 +275,6 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
             setValuesToChargeItems(requestBody, billRecord, ticket, startLine, endLine);
         });
 
-        customSummary(billRecord);
         var billId = billRecord.save();
         log.debug('Factura de compra creada', billId);
 
@@ -313,7 +312,6 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
             setValuesToChargeItems(requestBody, billIntercompanyRecord, ticket, startLine, endLine);
         });
 
-        customSummary(billIntercompanyRecord);
         var billIntercompanyId = billIntercompanyRecord.save();
         log.debug('Factura intercompany creada', billIntercompanyId);
 
@@ -356,8 +354,6 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
             setValuesToChargeItems(requestBody, salesOrder, ticket, startLine, endLine);//Se cargan los valores en los items de recargo por cada boleto
         });
 
-        customSummary(salesOrder);
-
         var salesOrderId;
 
         if (customer.customerCalendary) {//si tiene calendario de facturacion entonces creamos la orden cerrada
@@ -383,7 +379,6 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
 
         invoice.setValue({ fieldId: 'custbody_sdb_ticket_group', value: ticketGroup });
 
-        customSummary(invoice);
         var invoiceId = invoice.save();
         log.debug('Factura de venta creada', invoiceId);
 
@@ -424,7 +419,6 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
             setValuesToChargeItems(requestBody, intercompanyInvoice, ticket, startLine, endLine);
         });
 
-        customSummary(intercompanyInvoice);
         var intercompanyInvoiceId = intercompanyInvoice.save();
         log.debug("Factura Intercompany creada", intercompanyInvoiceId);
         log.debug("##### URL de la factura intercompany: ", "https://11341630-sb1.app.netsuite.com/app/accounting/transactions/custinvc.nl?id=" + intercompanyInvoiceId + "&whence=");
@@ -759,194 +753,6 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
             order.setCurrentSublistValue({ sublistId: 'item', fieldId: 'isclosed', value: true });
             order.commitLine({ sublistId: 'item' });
         }
-    }
-
-    function customSummary(transaction) {
-        let totalImpuestos = 0;
-        const lineCount = transaction.getLineCount({ sublistId: 'item' });
-        let taxec = 0;
-        let taxed = 0;
-        let taxOtro = 0;
-        let taxcombustible = 0;
-        let taxcombustibleIva = 0;
-        let totalCommissionD = 0;
-        let totalCommissionI = 0;
-        let totalBoletosIva = 0;
-        let totalboletosSiva = 0;
-        let totalBoletos = 0;
-
-        for (let i = 0; i < lineCount; i++) {
-            let itemId = parseInt(transaction.getSublistValue({
-                sublistId: 'item',
-                fieldId: 'item',
-                line: i
-            }));
-
-            if (itemId === 276 || itemId === 277 || itemId === 278 || itemId === 279 || itemId === 280 || itemId === 282 || itemId === 283) { //sumo los montos de taxec, taxotro, taxed, combustibleCiva, combustibleSiva, comisionD, comisionI
-                let grossamt = parseFloat(transaction.getSublistValue({
-                    sublistId: 'item',
-                    fieldId: 'grossamt',
-                    line: i
-                })) || 0;
-
-                totalImpuestos += grossamt;
-            }
-
-            switch (itemId) {
-                case 277:      // taxec
-                    let taxecAmt = parseFloat(transaction.getSublistValue({
-                        sublistId: 'item',
-                        fieldId: 'grossamt',
-                        line: i
-                    })) || 0;
-
-                    taxec += taxecAmt;
-                    break;
-                case 278:      // taxotro
-                    let taxOtroAmt = parseFloat(transaction.getSublistValue({
-                        sublistId: 'item',
-                        fieldId: 'grossamt',
-                        line: i
-                    })) || 0;
-
-                    taxOtro += taxOtroAmt;
-                    break;
-                case 276:      // taxed
-                    const taxedAmt = parseFloat(
-                        transaction.getSublistValue({
-                            sublistId: 'item',
-                            fieldId: 'grossamt',
-                            line: i
-                        })
-                    ) || 0;
-
-                    taxed += taxedAmt;
-                    break;
-
-                case 279:      // combustible c/iva
-                    const taxCombustibleciva = parseFloat(
-                        transaction.getSublistValue({
-                            sublistId: 'item',
-                            fieldId: 'grossamt',
-                            line: i
-                        })
-                    ) || 0;
-
-                    taxcombustibleIva += taxCombustibleciva;
-                    break;
-
-                case 280:      // combustible s/iva
-                    const taxCombustiblesiva = parseFloat(
-                        transaction.getSublistValue({
-                            sublistId: 'item',
-                            fieldId: 'grossamt',
-                            line: i
-                        })
-                    ) || 0;
-
-                    taxcombustible += taxCombustiblesiva;
-                    break;
-
-                case 282:      // comision nacional
-                    const totalComisionNacional = parseFloat(
-                        transaction.getSublistValue({
-                            sublistId: 'item',
-                            fieldId: 'grossamt',
-                            line: i
-                        })
-                    ) || 0;
-
-                    totalCommissionD += totalComisionNacional;
-                    break;
-
-                case 283:      // comision internacional
-                    const totalComisionInternacional = parseFloat(
-                        transaction.getSublistValue({
-                            sublistId: 'item',
-                            fieldId: 'grossamt',
-                            line: i
-                        })
-                    ) || 0;
-
-                    totalCommissionI += totalComisionInternacional;
-                    break;
-
-                case 263:      // boleto sin iva
-                    const totalBoletoSinIva = parseFloat(
-                        transaction.getSublistValue({
-                            sublistId: 'item',
-                            fieldId: 'grossamt',
-                            line: i
-                        })
-                    ) || 0;
-
-                    totalBoletos += 1;
-                    totalboletosSiva += totalBoletoSinIva;
-
-                    break;
-
-                case 281:      // boleto con iva 
-                    const totalBoletoConIva = parseFloat(
-                        transaction.getSublistValue({
-                            sublistId: 'item',
-                            fieldId: 'grossamt',
-                            line: i
-                        })
-                    ) || 0;
-
-                    totalBoletos += 1;
-                    totalBoletosIva += totalBoletoConIva;
-                    break;
-                default:
-                    break;
-            }
-        }
-
-        // total de impuestos en resumen custom
-        transaction.setValue({
-            fieldId: 'custbody_sdb_tax_total',
-            value: totalImpuestos.toFixed(2)
-        });
-        transaction.setValue({
-            fieldId: 'custbody_sdb_taxec_total',
-            value: taxec.toFixed(2)
-        });
-        transaction.setValue({
-            fieldId: 'custbody_sdb_total_taxed',
-            value: taxed.toFixed(2)
-        });
-        transaction.setValue({
-            fieldId: 'custbody_sdb_taxotro_total',
-            value: taxOtro.toFixed(2)
-        });
-        transaction.setValue({
-            fieldId: 'custbody_sdb_total_taxcombustible',
-            value: taxcombustible.toFixed(2)
-        });
-        transaction.setValue({
-            fieldId: 'custbody_sdb_total_taxcombustibleciva',
-            value: taxcombustibleIva.toFixed(2)
-        });
-        transaction.setValue({
-            fieldId: 'custbody_sdb_total_commission_nac',
-            value: totalCommissionD.toFixed(2)
-        });
-        transaction.setValue({
-            fieldId: 'custbody_sdb_total_commission_inter',
-            value: totalCommissionI.toFixed(2)
-        });
-        transaction.setValue({
-            fieldId: 'custbody_sdb_total_boletos',
-            value: totalboletosSiva.toFixed(2)
-        });
-        transaction.setValue({
-            fieldId: 'custbody_sdb_total_boletosiva',
-            value: totalBoletosIva.toFixed(2)
-        });
-        transaction.setValue({
-            fieldId: 'custbody_sdb_tickets_quantity',
-            value: totalBoletos
-        });
     }
 
     function getVendor(vendorName) {
