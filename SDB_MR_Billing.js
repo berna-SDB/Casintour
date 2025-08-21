@@ -5,13 +5,13 @@
 define(['N/search', 'N/record', 'N/log'], function (search, record, log) {
 
     function getInputData() {
-       const soSearch = search.create({
+        const soSearch = search.create({
             type: search.Type.SALES_ORDER,
             filters: [
                 ['mainline', 'is', 'T'],
                 'AND', ['custbody_sdb_created_from', 'is', 'T'],
                 'AND', ['custbody_sdb_manual_billing', 'is', 'F'],
-                'AND', ['custbody_sdb_billing_date_transaction', 'on', '30/7/2025'],
+                'AND', ['custbody_sdb_billing_date_transaction', 'on', 'today'],
                 'AND', ['status', 'anyof', 'SalesOrd:H'], //cerrada
             ],
             columns: ['internalid', 'entity', 'custbody_sdb_airline_related', 'custbody_sdb_origen']
@@ -70,7 +70,6 @@ define(['N/search', 'N/record', 'N/log'], function (search, record, log) {
                 department: sourceSo.getValue({ fieldId: 'department' }),
                 class: sourceSo.getValue({ fieldId: 'class' }),
                 currency: sourceSo.getValue({ fieldId: 'currency' }),
-                billingDate: sourceSo.getValue({ fieldId: 'custbody_sdb_billing_date_transaction' }),
                 createdFrom: true,
                 aeroline: sourceSo.getValue({ fieldId: 'custbody_sdb_airline_related' }),
                 airlineCode: sourceSo.getValue({ fieldId: 'custbody_sdb_airline_code' }),
@@ -125,7 +124,7 @@ define(['N/search', 'N/record', 'N/log'], function (search, record, log) {
                         mainSo.setCurrentSublistValue({ sublistId: 'item', fieldId: 'item', value: groupItemId });
                         mainSo.setCurrentSublistValue({ sublistId: 'item', fieldId: 'description', value: groupDescription });
                         mainSo.setCurrentSublistValue({ sublistId: 'item', fieldId: 'custcol_sdb_salesorder_ref', value: salesOrderIds[i] });
-                        mainSo.setCurrentSublistValue({ sublistId: 'item', fieldId: 'custcol_sdb_ticket_number', value: ticketNumber});
+                        mainSo.setCurrentSublistValue({ sublistId: 'item', fieldId: 'custcol_sdb_ticket_number', value: ticketNumber });
                         mainSo.setCurrentSublistValue({ sublistId: 'item', fieldId: 'custcol_sdb_ticket_route', value: routes });
                         mainSo.commitLine({ sublistId: 'item' });
                         ticketsInSo++;
@@ -142,7 +141,7 @@ define(['N/search', 'N/record', 'N/log'], function (search, record, log) {
                         const itemId = so.getSublistValue({ sublistId: 'item', fieldId: 'item', line: j });
                         const rate = so.getSublistValue({ sublistId: 'item', fieldId: 'rate', line: j });
 
-                        comissionSo.selectNewLine({ sublistId: 'item'});
+                        comissionSo.selectNewLine({ sublistId: 'item' });
                         comissionSo.setCurrentSublistValue({ sublistId: 'item', fieldId: 'item', value: itemId });
                         comissionSo.setCurrentSublistValue({ sublistId: 'item', fieldId: 'quantity', value: 1 });
                         comissionSo.setCurrentSublistValue({ sublistId: 'item', fieldId: 'rate', value: rate });
@@ -285,23 +284,23 @@ define(['N/search', 'N/record', 'N/log'], function (search, record, log) {
 
             switch (itemId) {
                 case 277:      // taxec
-                let taxecAmt = parseFloat(transaction.getSublistValue({
-                    sublistId: 'item',
-                    fieldId: 'grossamt',
-                    line: i
-                })) || 0;
+                    let taxecAmt = parseFloat(transaction.getSublistValue({
+                        sublistId: 'item',
+                        fieldId: 'grossamt',
+                        line: i
+                    })) || 0;
 
-                taxec += taxecAmt;
-                break;  
+                    taxec += taxecAmt;
+                    break;
                 case 278:      // taxotro
-                let taxOtroAmt = parseFloat(transaction.getSublistValue({
-                    sublistId: 'item',
-                    fieldId: 'grossamt',
-                    line: i
-                })) || 0;
+                    let taxOtroAmt = parseFloat(transaction.getSublistValue({
+                        sublistId: 'item',
+                        fieldId: 'grossamt',
+                        line: i
+                    })) || 0;
 
-                taxOtro += taxOtroAmt;
-                break;  
+                    taxOtro += taxOtroAmt;
+                    break;
                 case 276:      // taxed
                     const taxedAmt = parseFloat(
                         transaction.getSublistValue({
@@ -310,11 +309,11 @@ define(['N/search', 'N/record', 'N/log'], function (search, record, log) {
                             line: i
                         })
                     ) || 0;
-            
-                    taxed += taxedAmt;
-                    break;   
 
-                    case 279:      // combustible c/iva
+                    taxed += taxedAmt;
+                    break;
+
+                case 279:      // combustible c/iva
                     const taxCombustibleciva = parseFloat(
                         transaction.getSublistValue({
                             sublistId: 'item',
@@ -322,11 +321,11 @@ define(['N/search', 'N/record', 'N/log'], function (search, record, log) {
                             line: i
                         })
                     ) || 0;
-            
+
                     taxcombustibleIva += taxCombustibleciva;
                     break;
 
-                    case 280:      // combustible s/iva
+                case 280:      // combustible s/iva
                     const taxCombustiblesiva = parseFloat(
                         transaction.getSublistValue({
                             sublistId: 'item',
@@ -334,11 +333,11 @@ define(['N/search', 'N/record', 'N/log'], function (search, record, log) {
                             line: i
                         })
                     ) || 0;
-            
+
                     taxcombustible += taxCombustiblesiva;
                     break;
 
-                    case 282:      // comision nacional
+                case 282:      // comision nacional
                     const totalComisionNacional = parseFloat(
                         transaction.getSublistValue({
                             sublistId: 'item',
@@ -346,11 +345,11 @@ define(['N/search', 'N/record', 'N/log'], function (search, record, log) {
                             line: i
                         })
                     ) || 0;
-            
+
                     totalCommissionD += totalComisionNacional;
                     break;
 
-                    case 283:      // comision internacional
+                case 283:      // comision internacional
                     const totalComisionInternacional = parseFloat(
                         transaction.getSublistValue({
                             sublistId: 'item',
@@ -358,11 +357,11 @@ define(['N/search', 'N/record', 'N/log'], function (search, record, log) {
                             line: i
                         })
                     ) || 0;
-            
+
                     totalCommissionI += totalComisionInternacional;
                     break;
 
-                    case 263:      // boleto sin iva
+                case 263:      // boleto sin iva
                     const totalBoletoSinIva = parseFloat(
                         transaction.getSublistValue({
                             sublistId: 'item',
@@ -370,11 +369,11 @@ define(['N/search', 'N/record', 'N/log'], function (search, record, log) {
                             line: i
                         })
                     ) || 0;
-            
+
                     totalboletosSiva += totalBoletoSinIva;
                     break;
 
-                    case 281:      // boleto con iva 
+                case 281:      // boleto con iva 
                     const totalBoletoConIva = parseFloat(
                         transaction.getSublistValue({
                             sublistId: 'item',
@@ -382,7 +381,7 @@ define(['N/search', 'N/record', 'N/log'], function (search, record, log) {
                             line: i
                         })
                     ) || 0;
-            
+
                     totalBoletosIva += totalBoletoConIva;
                     break;
                 default:

@@ -18,7 +18,7 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
                     if (subsidiaryId && customer) {
                         const exchanges = [];          // [{ oldNumber, newId }]
                         let totalAmmount = 0;
-                        const ticketGroup = createTicketGroup(requestBody);
+                        const ticketGroup = createTicketGroup(requestBody, customer);
 
                         requestBody.boletos.forEach(function (ticket) {
 
@@ -50,40 +50,39 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
 
                 case "EMD":
                     log.debug("Procesando Boleto tipo EMD");
-                    var subsidiaryId = checkSubsidiary(requestBody.empresa); //Chequeo que exista la subsidiaria
-                    var customerData = requestBody.remarks;
-                    var customer = findCustomer(customerData, subsidiaryId);
+                    var subsidiaryId = checkSubsidiary(requestBody.empresa);
+                    var customerData;
+                    const emds = [];          // [{ oldNumber, newId }]
+                    let totalAmmount = 0;
+                    const ticketGroup = createTicketGroup(requestBody);
 
-                    if (subsidiaryId && customer) {
-                        const emds = [];          // [{ oldNumber, newId }]
-                        let totalAmmount = 0;
-                        const ticketGroup = createTicketGroup(requestBody);
-
-                        requestBody.boletos.forEach(function (ticket) {
-
-                            const newTicketId = createTicket(ticketType, ticket, ticketGroup);
-                            if (ticket.emdnumero) {
-                                emds.push({
-                                    oldNumber: ticket.emdnumero,
-                                    newId: newTicketId
-                                });
-                            }
-                            totalAmmount += parseFloat(ticket.total || 0);
-                        });
-
-                        // Marcar los boletos originales como modificados
-                        if (emds.length > 0) {
-                            markReferenceTickets(emds, 'EMD');
+                    requestBody.boletos.forEach(function (ticket) {
+                        const newTicketId = createTicket(ticketType, ticket, ticketGroup);
+                        if (ticket.emdnumero) {
+                            emds.push({
+                                oldNumber: ticket.emdnumero,
+                                newId: newTicketId
+                            });
                         }
+                        totalAmmount += parseFloat(ticket.total || 0);
+                    });
 
-                        if (totalAmmount > 0) { //Si tiene diferencias de monto entonces si creo los registros correspondientes.
-                            createPurchaseBill(requestBody, ticketGroup, subsidiaryId) //Se crea la Factura de compra al vendor externo (sea intercompany o no la voy a crear desde la subsidiaria actual)
-                            if (subsidiaryId != customer.subsidiaryId) {//Caso intercompany entonces agrego factura de compra y venta.
-                                createIntercompanyInvoice(requestBody, subsidiaryId, customer.subsidiaryId, ticketGroup)
-                                createPurchaseIntercompanyBill(requestBody, customer.subsidiaryId, ticketGroup, subsidiaryId)
+                    if (emds.length > 0) {
+                        markReferenceTickets(emds, 'EMD');// Marcar los boletos originales como modificados
+
+                        for (var i = 0; i < emds.length; i++) {
+                            if (emds[i].oldNumber) {
+                                customerData = findDataEmd(emds[0].oldNumber)
                             }
-                            createSalesOrder(requestBody, customer, ticketGroup); //Creo sale order para el cliente final
                         }
+                    }
+                    if (totalAmmount > 0 && customerData) { //Si tiene diferencias de monto y se encontro customer entonces si creo los registros correspondientes.
+                        createPurchaseBill(requestBody, ticketGroup, subsidiaryId) //Se crea la Factura de compra al vendor externo (sea intercompany o no la voy a crear desde la subsidiaria actual)
+                        if (subsidiaryId != customerData.subsidiaryId) {//Caso intercompany entonces agrego factura de compra y venta.
+                            createIntercompanyInvoice(requestBody, subsidiaryId, customerData.subsidiaryId, ticketGroup)
+                            createPurchaseIntercompanyBill(requestBody, customerData.subsidiaryId, ticketGroup, subsidiaryId)
+                        }
+                        createSalesOrder(requestBody, customerData, ticketGroup); //Creo sale order para el cliente final
                     }
                     break;
 
@@ -94,7 +93,7 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
                     var customer = findCustomer(customerData, subsidiaryId);
 
                     if (subsidiaryId && customer) {
-                        const ticketGroup = createTicketGroup(requestBody);
+                        const ticketGroup = createTicketGroup(requestBody, customer);
 
                         requestBody.boletos.forEach(function (ticket) {
                             createTicket(ticketType, ticket, ticketGroup);
@@ -177,13 +176,14 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
         return boletoId
     }
 
-    function createTicketGroup(requestBody) { //crea el grupo de boletos y las rutas.
+    function createTicketGroup(requestBody, customer) { //crea el grupo de boletos y las rutas.
         var newTicketGroup = record.create({
             type: "customrecord_grupoboletos",
             isDynamic: true
         });
 
         newTicketGroup.setValue({ fieldId: 'name', value: `Grupo de boletos ${requestBody.id}` });
+        if (customer) newTicketGroup.setValue({ fieldId: 'custrecord_sdb_customer', value: customer.customerId });
         newTicketGroup.setValue({ fieldId: 'custrecord_iddocumento', value: requestBody.id });
         newTicketGroup.setValue({ fieldId: 'custrecord_idarchivo', value: requestBody.idarchivo });
         newTicketGroup.setValue({ fieldId: 'custrecord_record', value: requestBody.record });
@@ -335,6 +335,7 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
 
         salesOrder.setValue({ fieldId: 'entity', value: customerId });
         salesOrder.setValue({ fieldId: 'subsidiary', value: customerSubsidiaryId });
+        salesOrder.setValue({ fieldId: 'trandate', value: new Date() });
         salesOrder.setValue({ fieldId: 'orderstatus', value: "B" }); // 2 = Aprobado
         salesOrder.setValue({ fieldId: 'custbody_sdb_ticket_group', value: ticketGroup });
         salesOrder.setValue({ fieldId: 'custbody_sdb_created_from', value: true });
@@ -386,7 +387,7 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
         var invoiceId = invoice.save();
         log.debug('Factura de venta creada', invoiceId);
 
-        createCustomerPayment(invoiceId, requestBody) //Datos del primer ticket para buscar tipo de pago (efectivo, tarjeta)
+        createCustomerPayment(invoiceId, requestBody)
         return invoiceId;
     }
 
@@ -430,10 +431,46 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
         return intercompanyInvoiceId;
     }
 
+    //Logica que identifica cuentas, montos y subsidiaria para realizar el pago
     function createCustomerPayment(invoiceId, requestBody) {
-        const ticket = requestBody.boletos[0];
+        let totalTc = 0;
+        let totalCash = 0;
 
-        const PAYMENT_ACCOUNTS = {//Define las cuentas por subsidiaria y método de pago
+        // Recorrer boletos buscando montos de efectivo y tarjeta
+        requestBody.boletos.forEach(ticket => {
+            totalTc += parseFloat(ticket.pagotc || 0);
+            totalCash += parseFloat(ticket.pagocash || 0);
+        });
+
+        log.debug('Totales', `TC: ${totalTc} | Cash: ${totalCash}`);
+
+        // Si es pago combinado (ambos > 0)
+        if (totalCash > 0 && totalTc > 0) {
+            // Verifica que se pueda pagar una parte en efectivo
+            if (totalCash > 0) {
+                createPayment(invoiceId, totalCash, 'efectivo');
+            }
+
+            // Verifica que se pueda pagar una parte con tarjeta
+            if (totalTc > 0) {
+                createPayment(invoiceId, totalTc, 'tarjeta');
+            }
+
+        } else {
+            // Caso simple: solo efectivo o solo tarjeta
+            if (totalCash > 0) {
+                createPayment(invoiceId, totalCash, 'efectivo');
+            }
+            if (totalTc > 0) {
+                createPayment(invoiceId, totalTc, 'tarjeta');
+            }
+        }
+    }
+
+    //Crea un pago con el monto y método especificado
+    function createPayment(invoiceId, amount, metodo) {
+
+        const PAYMENT_ACCOUNTS = {
             2: { //Casa de incentivos
                 efectivo: 428,
                 tarjeta: 428
@@ -451,41 +488,41 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
             isDynamic: true
         });
 
-        // Obtener subsidiaria del Customer Payment
         const subsidiaryId = payment.getValue({ fieldId: 'subsidiary' });
-
-        // Determinar método de pago
-        let metodo = '';
-        switch (true) {
-            case (ticket.pagotc > 0 && ticket.pagocash > 0):
-                metodo = 'efectivo'; // a efectivo
-                break;
-            case (ticket.pagotc > 0):
-                metodo = 'tarjeta';
-                break;
-            case (ticket.pagocash > 0):
-                metodo = 'efectivo';
-                break;
-            default:
-                metodo = 'desconocido';
-                break;
-        }
-
-        // Buscar cuenta según subsidiaria y método
-        let accountId = PAYMENT_ACCOUNTS[subsidiaryId]?.[metodo];
+        const accountId = PAYMENT_ACCOUNTS[subsidiaryId]?.[metodo];
 
         if (!accountId) {
-            throw new Error(`No se encontró cuenta para subsidiaria ${subsidiaryId} y método ${metodo}`);
+            log.error('Cuenta no encontrada', `Subsidiaria ${subsidiaryId} - Método ${metodo}`);
+            return null;
         }
 
+        // Asignamos cuenta y monto
         payment.setValue({ fieldId: 'account', value: accountId });
-        payment.setValue({ fieldId: 'memo', value: `Pago automático - Subsidiaria ${subsidiaryId} - Método: ${metodo}` });
+        payment.setValue({ fieldId: 'payment', value: amount });
+        payment.setValue({ fieldId: 'memo', value: `Pago automático - ${metodo}` });
+
+        // Aplicar el pago a la invoice
+        const lineCount = payment.getLineCount({ sublistId: 'apply' });
+        for (let i = 0; i < lineCount; i++) {
+            const appliedInvoiceId = payment.getSublistValue({
+                sublistId: 'apply',
+                fieldId: 'internalid',
+                line: i
+            });
+            if (appliedInvoiceId == invoiceId) {
+                payment.selectLine({ sublistId: 'apply', line: i });
+                payment.setCurrentSublistValue({ sublistId: 'apply', fieldId: 'apply', value: true });
+                payment.setCurrentSublistValue({ sublistId: 'apply', fieldId: 'amount', value: amount });
+                payment.commitLine({ sublistId: 'apply' });
+            }
+        }
 
         const paymentId = payment.save();
-        log.debug(`Customer Payment creado para ${ticket.boleto}`, `ID: ${paymentId}, Método: ${metodo}, Cuenta: ${accountId}`);
+        log.debug(`Customer Payment ${metodo.toUpperCase()} creado`, `ID: ${paymentId} | Monto: ${amount}`);
         return paymentId;
-
     }
+
+
 
     function findCustomer(remarks, subsidiary) {
         if (!remarks || !Array.isArray(remarks)) return null;
@@ -989,11 +1026,60 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
                 }
 
             } else {
-                throw new Error('Boleto no encontrado' + oldNumber);
+                throw new Error('Boleto no encontrado ' + oldNumber);
             }
-
         });
     }
+
+    //Busca el customer y subsidiaria que tenia asignado el boleto anterior para asignar a los emd.
+    function findDataEmd(boletoID) {
+        //Boleto -> grupo
+        var boletoRes = search.create({
+            type: 'customrecord_boleto',
+            filters: ['custrecord_numeroboleto', 'is', boletoID],
+            columns: ['custrecord_grupo']
+        }).run().getRange({ start: 0, end: 1 });
+
+        if (!boletoRes || !boletoRes.length) {
+            return null;
+        }
+
+        var groupId = boletoRes[0].getValue('custrecord_grupo');
+        if (!groupId) {
+            return null;
+        }
+
+        // Grupo -> cliente 
+        var groupData = search.lookupFields({
+            type: 'customrecord_grupoboletos',
+            id: groupId,
+            columns: ['custrecord_sdb_customer']
+        });
+
+        var customerId = Array.isArray(groupData.custrecord_sdb_customer) &&
+            groupData.custrecord_sdb_customer[0]
+            ? groupData.custrecord_sdb_customer[0].value
+            : null;
+
+        if (!customerId) {
+            return null
+        }
+
+        //Cliente -> subsidiaria
+        var custData = search.lookupFields({
+            type: 'customer',
+            id: customerId,
+            columns: ['subsidiary']
+        });
+
+        var subsidiaryId = Array.isArray(custData.subsidiary) &&
+            custData.subsidiary[0]
+            ? custData.subsidiary[0].value
+            : null;
+
+        return { customerId: customerId, subsidiaryId: subsidiaryId };
+    }
+
     function logError(e, context = {}) {
         try {
             const errorLog = record.create({

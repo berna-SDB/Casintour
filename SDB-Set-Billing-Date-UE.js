@@ -18,6 +18,29 @@ define([
       let date = currentRcd.getValue("trandate");
       let customerID = currentRcd.getValue("entity");
 
+      // Verificar si existe alguna línea ABIERTA (si hay linea abierta entonces no debemos setear fecha de facturacion)
+      let lineCount = currentRcd.getLineCount({ sublistId: "item" });
+      let hasOpenLine = false;
+
+      for (let i = 0; i < lineCount; i++) {
+        let isClosed = currentRcd.getSublistValue({
+          sublistId: "item",
+          fieldId: "isclosed",
+          line: i
+        });
+
+        if (!isClosed) {
+          hasOpenLine = true;
+          break; // ya se encontro linea de articulo abierta, no es necesario seguir
+        }
+      }
+
+      // 🔹 Si hay al menos una línea abierta → no setear fecha
+      if (hasOpenLine) {
+        log.debug("beforeSubmit", "Se encontró una línea abierta, no se setea fecha de facturación");
+        return;
+      }
+
       if (date) {
         let billingCalendar =
           search.lookupFields({
@@ -48,12 +71,12 @@ define([
             fieldId: 'custbody_sdb_billing_date_transaction',
             value: LIB.getDateFormatted(billingDate)
           });
-        } else {
-          log.debug('Calendario de facturación', 'EL CLIENTE NO TIENE SETEADO EL CALENDARIO DE FACTURACION INGRESADO');
         }
+      } else {
+        log.debug('Calendario de facturación', 'EL CLIENTE NO TIENE SETEADO EL CALENDARIO DE FACTURACION INGRESADO');
       }
     } catch (err) {
-      log.error('err at beforeSubmit', err);
+      log.error('err at afterSubmit', err);
     }
   }
 
