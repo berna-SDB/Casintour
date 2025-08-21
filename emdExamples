@@ -1,0 +1,373 @@
+
+  {
+    "id": 1072878,
+    "idarchivo": "AXECH8&BSP.WBS-R",
+    "record": null,
+    "recordAerolinea": "AXECH8",
+    "airTktt": 1,
+    "tipoTicket": "ET",
+    "farecalculation": "CUE AV UIO Q10.00 46.00USD56.00END  ",
+    "gds": null,
+    "sistemaDistribucion": "EDIS",
+    "empresa": "79501833",
+    "domInt": "D",
+    "tourcode": null,
+    "bassetId": null,
+    "dk": null,
+    "fechacaptura": "2025-06-06T06:40:40+00:00",
+    "boletos": [
+      {
+        "id": 2023063,
+        "aerolinea": {
+          "code": "547",
+          "aerolinea": "Avianca Ecuador",
+          "iniciales": "2K",
+          "origen": "NACIONAL",
+          "codeGroup": 1,
+          "id": 0
+        },
+        "boleto": "2402862530",
+        "fecha": "2025-06-05",
+        "fechareserva": null,
+        "horareserva": null,
+        "horaemision": null,
+        "pasajero": "BRAVOMALO/LEONARDO",
+        "oidreserva": null,
+        "ticketeadorReserva": null,
+        "oidemision": null,
+        "ticketeadorEmision": null,
+        "codigoIata": "79501833",
+        "taxec": 8.4,
+        "taxed": 0,
+        "taxotro": 14,
+        "taxcombustible": 0,
+        "tarifa": 56,
+        "tarifaMoneda": null,
+        "total": 78.4,
+        "pagocash": 78.4,
+        "pagotc": 0,
+        "comisionBsp": 0.56,
+        "void": null,
+        "exchange": null,
+        "emdnumero": null,
+        "numero": null,
+        "numPasajero": null,
+        "comisionMym": null,
+        "fee": null,
+        "tarjetas": []
+      }
+    ],
+    "routings": [
+      {
+        "xo": "O",
+        "farebasis": "SEOB0GRI",
+        "ticketDesignator": null,
+        "ruta": "CUE/UIO",
+        "carrier": "AV",
+        "vuelo": "1607",
+        "clase": "S",
+        "fechasalida": "19JUN25",
+        "horasalida": "2003",
+        "fechallegada": null,
+        "horallegada": null,
+        "numero": "1",
+        "rutaCompartida": false,
+        "cabina": null,
+        "familiaTarifaria": "B0"
+      }
+    ],
+    "remarks": []
+  },
+
+
+
+
+  {
+    "id": 1072867,
+    "idarchivo": "AXEKER&BSP.CAP",
+    "record": "AXEKER",
+    "recordAerolinea": "AXECH8",
+    "airTktt": 1,
+    "tipoTicket": "EMD",
+    "farecalculation": "",
+    "gds": "Amadeus",
+    "sistemaDistribucion": "EDIS",
+    "empresa": "79501833",
+    "domInt": "D",
+    "tourcode": "",
+    "bassetId": null,
+    "dk": null,
+    "fechacaptura": "2025-06-05T20:53:21+00:00",
+    "boletos": [
+      {
+        "id": 2023045,
+        "aerolinea": {
+          "code": "547",
+          "aerolinea": "Avianca Ecuador",
+          "iniciales": "2K",
+          "origen": "NACIONAL",
+          "codeGroup": 1,
+          "id": 0
+        },
+        "boleto": "4080950771",
+        "fecha": "2025-06-05",
+        "fechareserva": "2025-06-05",
+        "horareserva": null,
+        "horaemision": null,
+        "pasajero": "BRAVOMALO/LEONARDO(ADT)",
+        "oidreserva": "UIOE128CD",
+        "ticketeadorReserva": "9999WS",
+        "oidemision": "UIOE127HA",
+        "ticketeadorEmision": "2806TR",
+        "codigoIata": "79501833",
+        "taxec": 3.12,
+        "taxed": 0,
+        "taxotro": 0,
+        "taxcombustible": 0,
+        "tarifa": 20.88,
+        "tarifaMoneda": "",
+        "total": 24,
+        "pagocash": 24,
+        "pagotc": 0,
+        "comisionBsp": 0,
+        "void": null,
+        "exchange": null,
+        "emdnumero": "2402862530",
+        "numero": "1",
+        "numPasajero": "01",
+        "comisionMym": null,
+        "fee": null,
+        "tarjetas": []
+      }
+    ],
+    "routings": [],
+    "remarks": []
+  },
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  {
+    "id": 1073174,
+    "idarchivo": "AZ4P27&BSP.CAP",
+    "record": "AZ4P27",
+    "recordAerolinea": "AZ4QZP",
+    "airTktt": 1,
+    "tipoTicket": "EMD",
+    "farecalculation": "",
+    "gds": "Amadeus",
+    "sistemaDistribucion": "EDIS",
+    "empresa": "79501833",
+    "domInt": "D",
+    "tourcode": "",
+    "bassetId": null,
+    "dk": null,
+    "fechacaptura": "2025-06-06T14:27:30+00:00",
+    "boletos": [
+      {
+        "id": 2023512,
+        "aerolinea": {
+          "code": "547",
+          "aerolinea": "Avianca Ecuador",
+          "iniciales": "2K",
+          "origen": "NACIONAL",
+          "codeGroup": 1,
+          "id": 0
+        },
+        "boleto": "4080950789",
+        "fecha": "2025-06-06",
+        "fechareserva": "2025-06-05",
+        "horareserva": null,
+        "horaemision": null,
+        "pasajero": "VILLACRES FONSECA/NELLY MARINA(SNN)",
+        "oidreserva": "UIOE121E9",
+        "ticketeadorReserva": "2307FA",
+        "oidemision": "UIOE121E9",
+        "ticketeadorEmision": "5260JS",
+        "codigoIata": "79501833",
+        "taxec": 0,
+        "taxed": 0,
+        "taxotro": 0,
+        "taxcombustible": 5.6,
+        "tarifa": 29.4,
+        "tarifaMoneda": "",
+        "total": 35,
+        "pagocash": 0,
+        "pagotc": 35,
+        "comisionBsp": 0,
+        "void": null,
+        "exchange": null,
+        "emdnumero": "2402862859",
+        "numero": "5",
+        "numPasajero": "01",
+        "comisionMym": null,
+        "fee": null,
+        "tarjetas": [
+          {
+            "id": 947300,
+            "tcEmpresa": "54",
+            "tcNumero": "51950000808484",
+            "tcAutorizacion": "155453",
+            "tcValor": 0
+          }
+        ]
+      },
+      {
+        "id": 2023513,
+        "aerolinea": {
+          "code": "547",
+          "aerolinea": "Avianca Ecuador",
+          "iniciales": "2K",
+          "origen": "NACIONAL",
+          "codeGroup": 1,
+          "id": 0
+        },
+        "boleto": "4080950790",
+        "fecha": "2025-06-06",
+        "fechareserva": "2025-06-05",
+        "horareserva": null,
+        "horaemision": null,
+        "pasajero": "VILLACRES FONSECA/NELLY MARINA(SNN)",
+        "oidreserva": "UIOE121E9",
+        "ticketeadorReserva": "2307FA",
+        "oidemision": "UIOE121E9",
+        "ticketeadorEmision": "5260JS",
+        "codigoIata": "79501833",
+        "taxec": 4.56,
+        "taxed": 0,
+        "taxotro": 0,
+        "taxcombustible": 0,
+        "tarifa": 30.44,
+        "tarifaMoneda": "",
+        "total": 35,
+        "pagocash": 0,
+        "pagotc": 35,
+        "comisionBsp": 0,
+        "void": null,
+        "exchange": null,
+        "emdnumero": "2402862859",
+        "numero": "6",
+        "numPasajero": "01",
+        "comisionMym": null,
+        "fee": null,
+        "tarjetas": [
+          {
+            "id": 947301,
+            "tcEmpresa": "54",
+            "tcNumero": "51950000808484",
+            "tcAutorizacion": "155453",
+            "tcValor": 0
+          }
+        ]
+      },
+      {
+        "id": 2023514,
+        "aerolinea": {
+          "code": "547",
+          "aerolinea": "Avianca Ecuador",
+          "iniciales": "2K",
+          "origen": "NACIONAL",
+          "codeGroup": 1,
+          "id": 0
+        },
+        "boleto": "4080950791",
+        "fecha": "2025-06-06",
+        "fechareserva": "2025-06-05",
+        "horareserva": null,
+        "horaemision": null,
+        "pasajero": "VILLACRES FONSECA/NELLY MARINA(SNN)",
+        "oidreserva": "UIOE121E9",
+        "ticketeadorReserva": "2307FA",
+        "oidemision": "UIOE121E9",
+        "ticketeadorEmision": "5260JS",
+        "codigoIata": "79501833",
+        "taxec": 0,
+        "taxed": 0,
+        "taxotro": 0,
+        "taxcombustible": 14.7,
+        "tarifa": 77.3,
+        "tarifaMoneda": "",
+        "total": 92,
+        "pagocash": 0,
+        "pagotc": 92,
+        "comisionBsp": 0,
+        "void": null,
+        "exchange": null,
+        "emdnumero": "2402862859",
+        "numero": "7",
+        "numPasajero": "01",
+        "comisionMym": null,
+        "fee": null,
+        "tarjetas": [
+          {
+            "id": 947302,
+            "tcEmpresa": "54",
+            "tcNumero": "51950000808484",
+            "tcAutorizacion": "155453",
+            "tcValor": 0
+          }
+        ]
+      },
+      {
+        "id": 2023515,
+        "aerolinea": {
+          "code": "547",
+          "aerolinea": "Avianca Ecuador",
+          "iniciales": "2K",
+          "origen": "NACIONAL",
+          "codeGroup": 1,
+          "id": 0
+        },
+        "boleto": "4080950792",
+        "fecha": "2025-06-06",
+        "fechareserva": "2025-06-05",
+        "horareserva": null,
+        "horaemision": null,
+        "pasajero": "VILLACRES FONSECA/NELLY MARINA(SNN)",
+        "oidreserva": "UIOE121E9",
+        "ticketeadorReserva": "2307FA",
+        "oidemision": "UIOE121E9",
+        "ticketeadorEmision": "5260JS",
+        "codigoIata": "79501833",
+        "taxec": 0,
+        "taxed": 0,
+        "taxotro": 0,
+        "taxcombustible": 0,
+        "tarifa": 100.2,
+        "tarifaMoneda": "",
+        "total": 100.2,
+        "pagocash": 0,
+        "pagotc": 100.2,
+        "comisionBsp": 0,
+        "void": null,
+        "exchange": null,
+        "emdnumero": "2402862859",
+        "numero": "8",
+        "numPasajero": "01",
+        "comisionMym": null,
+        "fee": null,
+        "tarjetas": [
+          {
+            "id": 947303,
+            "tcEmpresa": "54",
+            "tcNumero": "51950000808484",
+            "tcAutorizacion": "155453",
+            "tcValor": 0
+          }
+        ]
+      }
+    ],
+    "routings": [],
+    "remarks": []
+  },
