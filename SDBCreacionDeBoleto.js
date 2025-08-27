@@ -24,10 +24,10 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
 
                             const newTicketId = createTicket(ticketType, ticket, ticketGroup);
                             if (ticket.exchange) {
-                                exchanges.push({
-                                    oldNumber: ticket.exchange,
-                                    newId: newTicketId
-                                });
+                                exchanges.push({ oldNumber: ticket.exchange, newId: newTicketId });
+                            }
+                            if (Array.isArray(ticket.tarjetas) && ticket.tarjetas.length > 0) {
+                                createCards(ticket.tarjetas, newTicketId);
                             }
                             totalAmmount += parseFloat(ticket.total || 0);
                         });
@@ -59,10 +59,10 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
                     requestBody.boletos.forEach(function (ticket) {
                         const newTicketId = createTicket(ticketType, ticket, ticketGroup);
                         if (ticket.emdnumero) {
-                            emds.push({
-                                oldNumber: ticket.emdnumero,
-                                newId: newTicketId
-                            });
+                            emds.push({ oldNumber: ticket.emdnumero, newId: newTicketId });
+                        }
+                        if (Array.isArray(ticket.tarjetas) && ticket.tarjetas.length > 0) {
+                            createCards(ticket.tarjetas, newTicketId);
                         }
                         totalAmmount += parseFloat(ticket.total || 0);
                     });
@@ -76,7 +76,7 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
                             }
                         }
                     }
-                    if (totalAmmount > 0 && customerData) { //Si tiene diferencias de monto y se encontro customer entonces si creo los registros correspondientes.
+                    if (totalAmmount > 0 && customerData) { //Si tiene diferencias de monto y se encontró customer entonces si creo los registros correspondientes.
                         createPurchaseBill(requestBody, ticketGroup, subsidiaryId) //Se crea la Factura de compra al vendor externo (sea intercompany o no la voy a crear desde la subsidiaria actual)
                         if (subsidiaryId != customerData.subsidiaryId) {//Caso intercompany entonces agrego factura de compra y venta.
                             createIntercompanyInvoice(requestBody, subsidiaryId, customerData.subsidiaryId, ticketGroup)
@@ -96,7 +96,10 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
                         const ticketGroup = createTicketGroup(requestBody, customer);
 
                         requestBody.boletos.forEach(function (ticket) {
-                            createTicket(ticketType, ticket, ticketGroup);
+                            var ticketId = createTicket(ticketType, ticket, ticketGroup);
+                            if (Array.isArray(ticket.tarjetas) && ticket.tarjetas.length > 0) {
+                                createCards(ticket.tarjetas, ticketId);
+                            }
                         })
 
                         createPurchaseBill(requestBody, ticketGroup, subsidiaryId) //Se crea la Factura de compra al vendor externo (sea intercompany o no la voy a crear desde la subsidiaria actual)
@@ -164,15 +167,12 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
         newTicketRecord.setValue({ fieldId: 'custrecord_pagocash', value: ticket.pagocash });
         newTicketRecord.setValue({ fieldId: 'custrecord_pagotc', value: ticket.pagotc });
         newTicketRecord.setValue({ fieldId: 'custrecord_void', value: ticket.void });
-        //newTicketRecord.setValue({ fieldId: 'custrecord_exchange', value: ticket.exchange });
-        //newTicketRecord.setValue({ fieldId: 'custrecord_emdnumero', value: ticket.emdnumero });
         newTicketRecord.setValue({ fieldId: 'custrecord_numero', value: ticket.numero });
         newTicketRecord.setValue({ fieldId: 'custrecord_numpasajero', value: ticket.numPasajero });
         newTicketRecord.setValue({ fieldId: 'custrecord_comision', value: ticket.comision });
 
         var boletoId = newTicketRecord.save();
         log.debug('Boleto creado', 'ID: ' + boletoId);
-        // if (boletoId) { return true }
         return boletoId
     }
 
@@ -471,7 +471,7 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
             },
             3: { //Vallejo
                 efectivo: 433,
-                tarjeta: 433
+                tarjeta: 428
             }
         };
 
@@ -515,8 +515,6 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
         log.debug(`Customer Payment ${metodo.toUpperCase()} creado`, `ID: ${paymentId} | Monto: ${amount}`);
         return paymentId;
     }
-
-
 
     function findCustomer(remarks, subsidiary) {
         if (!remarks || !Array.isArray(remarks)) return null;
@@ -884,6 +882,23 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
             : null;
 
         return { customerId: customerId, subsidiaryId: subsidiaryId };
+    }
+
+    function createCards(cardObj, ticketId) {
+        const cards = cardObj || [];
+        cards.forEach(card => {
+            var cardRecord = record.create({
+                type: "customrecord_sdb_card_record",
+                isDynamic: true
+            });
+            cardRecord.setValue({ fieldId: 'custrecord_sdb_parent_ticket', value: ticketId });
+            cardRecord.setValue({ fieldId: 'name', value: card.id });
+            cardRecord.setValue({ fieldId: 'custrecord_sdb_card_id', value: card.id });
+            cardRecord.setValue({ fieldId: 'custrecord_sdb_card_tcempresa', value: card.tcEmpresa });
+            cardRecord.setValue({ fieldId: 'custrecord_sdb_card_tcautorizacion', value: card.tcAutorizacion });
+            cardRecord.setValue({ fieldId: 'custrecord_sdb_card_tcvalor', value: card.tcValor });
+            cardRecord.save();
+        });
     }
 
     function logError(e, context = {}) {

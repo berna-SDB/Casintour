@@ -230,7 +230,7 @@ define(["N/currentRecord", "N/format", "N/record", "N/search", "N/log"], /**
         if (
           (
             (dayOfFirstBiweekly && today.getDate() > dayOfFirstBiweekly) ||
-            (objRecord.last_day_first_biweek && today >= firstLastDayCurrentBiweek) ||
+            (objRecord.last_day_first_biweek && today > firstLastDayCurrentBiweek) ||
             (firstResultDate && today > firstResultDate)
           ) &&
           (
@@ -249,10 +249,6 @@ define(["N/currentRecord", "N/format", "N/record", "N/search", "N/log"], /**
             log.debug('Entro en Seteo de objRecord.second_biweek_numeration && objRecord.second_biweekly_billing')
             let resultDate = secondResultDate
 
-            // Si ya pasó, buscamos en el mes siguiente
-            if (resultDate < today.setHours(0, 0, 0, 0)) {
-              resultDate = getMonthlyWeekdayDate(year, month + 1, secondWeekday, secondOrder);
-            }
             return resultDate;
 
           } else if (objRecord.last_day_sd_second_biweek) {//Si se selecciono el ultimo dia de la segunda quincena.
@@ -261,14 +257,14 @@ define(["N/currentRecord", "N/format", "N/record", "N/search", "N/log"], /**
           }
         }
 
-        else { //si no cumple con la condicion anterior entonces siempre va a ser primer quincena 
+        else { //si no cumple con la condicion anterior entonces siempre va a ser primer quincena del mes actual o del mes siguiente (la fecha actual puede ser mayor a la fecha seteada en primer quincena y mayor a la seteada en segunda quincena)
           log.debug('Entro en Seteo de primera quincena')
 
           if (objRecord.first_biweekly_day) { // Si es un dia Particular de la primera quincena
             log.debug('Entro en Seteo de first_biweekly_day')
             let resultDate = new Date(year, month, dayOfFirstBiweekly);
 
-            if (resultDate < today.setHours(0, 0, 0, 0)) {
+            if (resultDate < today.setHours(0, 0, 0, 0)) { //Si la fecha ya paso entonces busca primer quincena en el mes siguiente
               resultDate = new Date(year, month + 1, dayOfFirstBiweekly);
             }
             return resultDate;
@@ -277,14 +273,17 @@ define(["N/currentRecord", "N/format", "N/record", "N/search", "N/log"], /**
             log.debug('Entro en Seteo de objRecord.first_biweekly_numeration && objRecord.first_biweekly_billing')
             let resultDate = firstResultDate
 
-            // Si ya pasó, buscamos en el mes siguiente
-            if (resultDate < today.setHours(0, 0, 0, 0)) {
-              resultDate = getMonthlyWeekdayDate(year, month + 1, firstWeekday, firstOrder);
+            if (resultDate < today.setHours(0, 0, 0, 0)) {// Si ya pasó, busca en la primer quincena del proximo mes
+              resultDate = getBiweeklyWeekdayDate(year, month + 1, firstWeekday, firstOrder, 'first');
             }
             return resultDate;
 
           } else if (objRecord.last_day_first_biweek) { //Si selecciono el ultimo dia de la primer quincena.
             log.debug('Entro en Seteo de objRecord.last_day_first_biweek')
+
+            if (firstLastDayCurrentBiweek < today.setHours(0, 0, 0, 0)) {// Si ya pasó, busca el ultimo dia de la primer quincena del mes proximo
+              return new Date(year, month + 1, 15); //Calcula fin de quincena 
+            }
             return firstLastDayCurrentBiweek;
           }
         }
@@ -296,11 +295,15 @@ define(["N/currentRecord", "N/format", "N/record", "N/search", "N/log"], /**
 
     //Devuelve primer lunes, segundo lunes, etc de la primer o segunda quincena dependiendo el parametro part
     function getBiweeklyWeekdayDate(year, month, weekday, order, part) {
+      log.debug('Entro a getBiweeklyWeekdayDate')
       // límites de la quincena
       const startDay = (part === 'second') ? 16 : 1;
       const endDay = (part === 'second')
         ? new Date(year, month + 1, 0).getDate() // último día del mes
         : 15;
+
+      log.debug('startDay', startDay)
+      log.debug('endDay', endDay)
 
       const matches = [];
       // comienza en el primer día de la quincena

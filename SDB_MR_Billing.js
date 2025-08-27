@@ -117,7 +117,6 @@ define(['N/search', 'N/record', 'N/log'], function (search, record, log) {
                         const ticketNumber = so.getSublistValue({ sublistId: 'item', fieldId: 'custcol_sdb_ticket_number', line: j });
                         const routes = so.getSublistValue({ sublistId: 'item', fieldId: 'custcol_sdb_ticket_route', line: j });
 
-
                         mainSo.selectNewLine({ sublistId: 'item' });
                         mainSo.setCurrentSublistValue({ sublistId: 'item', fieldId: 'item', value: groupItemId });
                         mainSo.setCurrentSublistValue({ sublistId: 'item', fieldId: 'description', value: groupDescription });
