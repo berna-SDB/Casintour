@@ -11,6 +11,7 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
             switch (ticketType) {
                 case "EX":
                     log.debug("Procesando Boleto tipo EX");
+                    if (!requestBody.boletos) throw new Error("No se encontró el campo boletos. No se procesará la solicitud");
                     var subsidiaryId = checkSubsidiary(requestBody.empresa); //Chequeo que exista la subsidiaria
                     var customerData = requestBody.remarks;
                     var customer = findCustomer(customerData, subsidiaryId);
@@ -21,7 +22,6 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
                         const ticketGroup = createTicketGroup(requestBody, customer);
 
                         requestBody.boletos.forEach(function (ticket) {
-
                             const newTicketId = createTicket(ticketType, ticket, ticketGroup);
                             if (ticket.exchange) {
                                 exchanges.push({ oldNumber: ticket.exchange, newId: newTicketId });
@@ -50,6 +50,7 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
 
                 case "EMD":
                     log.debug("Procesando Boleto tipo EMD");
+                    if (!requestBody.boletos) throw new Error("No se encontró el campo boletos. No se procesará la solicitud");
                     var subsidiaryId = checkSubsidiary(requestBody.empresa);
                     var customerData;
                     const emds = [];          // [{ oldNumber, newId }]
@@ -88,6 +89,7 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
 
                 case "ET": // Lógica para Boleto común
                     log.debug("Procesando Boleto tipo ET");
+                    if (!requestBody.boletos) throw new Error("No se encontró el campo boletos. No se procesará la solicitud");
                     var subsidiaryId = checkSubsidiary(requestBody.empresa); //Chequeo que exista la subsidiaria
                     var customerData = requestBody.remarks;
                     var customer = findCustomer(customerData, subsidiaryId);
@@ -429,11 +431,14 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
     function createCustomerPayment(invoiceId, requestBody) {
         let totalTc = 0;
         let totalCash = 0;
+        let comission = 0;
+
 
         // Recorrer boletos buscando montos de efectivo y tarjeta
         requestBody.boletos.forEach(ticket => {
             totalTc += parseFloat(ticket.pagotc || 0);
             totalCash += parseFloat(ticket.pagocash || 0);
+            comission += parseFloat(ticket.comision || 0);
         });
 
         log.debug('Totales', `TC: ${totalTc} | Cash: ${totalCash}`);
@@ -442,7 +447,7 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
         if (totalCash > 0 && totalTc > 0) {
             // Verifica que se pueda pagar una parte en efectivo
             if (totalCash > 0) {
-                createPayment(invoiceId, totalCash, 'efectivo');
+                createPayment(invoiceId, totalCash + comission, 'efectivo');
             }
 
             // Verifica que se pueda pagar una parte con tarjeta
@@ -453,10 +458,10 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
         } else {
             // Caso simple: solo efectivo o solo tarjeta
             if (totalCash > 0) {
-                createPayment(invoiceId, totalCash, 'efectivo');
+                createPayment(invoiceId, totalCash + comission, 'efectivo');
             }
             if (totalTc > 0) {
-                createPayment(invoiceId, totalTc, 'tarjeta');
+                createPayment(invoiceId, totalTc + comission, 'tarjeta');
             }
         }
     }
@@ -517,7 +522,7 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
     }
 
     function findCustomer(remarks, subsidiary) {
-        if (!remarks || !Array.isArray(remarks)) return null;
+        if (!remarks || !Array.isArray(remarks)) throw new Error("No se encontró el campo remarks. No se procesará la solicitud");
         var customerRuc = null;
 
         for (let i = 0; i < remarks.length; i++) {
@@ -634,7 +639,6 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
         return customerRep;
     }
 
-
     function addCommission(requestBody, order, ticket, endLine) {
         var orig = requestBody.domInt;
         var line = endLine;
@@ -654,10 +658,12 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
 
     function setValuesToChargeItems(requestBody, order, ticket, startLine, endLine) {
         deleteItem(order, -3, startLine, endLine) //elimino el item que inicializa el grupo 
-        var baseTaxEc = ((ticket.taxec * 100) / 15);
+        var baseTaxEc = Math.round(((ticket.taxec * 100) / 15) * 100) / 100; //Para redondear y no de diferencias por decimales muy pequeños
         let lineNumber = startLine + 1;
 
         if (ticket.taxcombustible <= 0) {
+            log.debug('baseTaxEc', baseTaxEc)
+            log.debug('ticket.tarifa', ticket.tarifa)
             if (baseTaxEc == ticket.tarifa) {
                 insertItem(order, lineNumber, 281, ticket.tarifa)
                 lineNumber++
@@ -806,7 +812,7 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
                         }
                     });
 
-                    log.debug('Boletos marcados como modificados', oldBoletoId, newId);
+                    log.debug('Boletos marcados como modificados', 'oldBoletoId=' + oldBoletoId + ' | newId=' + newId);
                 }
                 else { //Es un emd 
                     record.submitFields({
@@ -825,12 +831,10 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
                             custrecord_emdnumero: oldBoletoId  //Referencia al boleto viejo el cual recibió EMD
                         }
                     });
-
                     log.debug('Boletos marcados como modificados', oldBoletoId, newId);
                 }
-
             } else {
-                throw new Error('Boleto no encontrado ' + oldNumber);
+                log.debug('Boleto no encontrado ' + oldNumber);
             }
         });
     }
@@ -908,7 +912,7 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
                 isDynamic: true
             });
 
-            errorLog.setValue({ fieldId: 'name', value: `Error en ${context.module || 'Sin módulo'} - ${new Date().toISOString()}` });
+            errorLog.setValue({ fieldId: 'name', value: `Error en solicitud ${context.relatedId.toString()} - ${new Date().toISOString()}` });
             errorLog.setValue({ fieldId: 'custrecord_sdb_error_fecha', value: new Date() });
             errorLog.setValue({ fieldId: 'custrecord_sdb_error_modulo', value: context.module || 'Sin nombre' });
             errorLog.setValue({ fieldId: 'custrecord_sdb_error_msg', value: e.message || 'Error sin mensaje' });
