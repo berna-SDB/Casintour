@@ -24,8 +24,9 @@ define([
     let totalImpuestos = 0;
     const lineCount = transaction.getLineCount({ sublistId: 'item' });
     let taxec = 0, taxed = 0, taxOtro = 0, taxcombustible = 0, taxcombustibleIva = 0;
-    let totalCommissionD = 0, totalCommissionI = 0;
-    let totalBoletosIva = 0, totalboletosSiva = 0, totalBoletos = 0;
+    let totalBoletosIva = 0, totalboletosSiva = 0, totalBoletos = 0
+    let totalCommissionDFee = 0, totalCommissionIFee = 0;
+    //let totalComisionDMym = 0, totalComisionIMym = 0, totalComisionDBsp = 0, totalComisionIBsp = 0
 
     for (let i = 0; i < lineCount; i++) {
       let itemId = parseInt(transaction.getSublistValue({
@@ -34,7 +35,7 @@ define([
         line: i
       }));
 
-      if (itemId === 276 || itemId === 277 || itemId === 278 || itemId === 279 || itemId === 280 || itemId === 282 || itemId === 283) { //suma los montos de taxec, taxotro, taxed, combustibleCiva, combustibleSiva, comisionD, comisionI
+      if (itemId === 276 || itemId === 277 || itemId === 278 || itemId === 279 || itemId === 280) { //suma los montos de taxec, taxotro, taxed, combustibleCiva, combustibleSiva, comisionD, comisionI
         let grossamt = parseFloat(transaction.getSublistValue({
           sublistId: 'item',
           fieldId: 'grossamt',
@@ -49,8 +50,8 @@ define([
         case 276: taxed += getGross(transaction, i); break;
         case 279: taxcombustibleIva += getGross(transaction, i); break;
         case 280: taxcombustible += getGross(transaction, i); break;
-        case 282: totalCommissionD += getGross(transaction, i); break;
-        case 283: totalCommissionI += getGross(transaction, i); break;
+        case 282: totalCommissionDFee += getGross(transaction, i); break;
+        case 283: totalCommissionIFee += getGross(transaction, i); break;
         case 263: totalBoletos++; totalboletosSiva += getGross(transaction, i); break;
         case 281: totalBoletos++; totalBoletosIva += getGross(transaction, i); break;
         default: break;
@@ -64,8 +65,8 @@ define([
     transaction.setValue({ fieldId: 'custbody_sdb_taxotro_total', value: taxOtro.toFixed(2) });
     transaction.setValue({ fieldId: 'custbody_sdb_total_taxcombustible', value: taxcombustible.toFixed(2) });
     transaction.setValue({ fieldId: 'custbody_sdb_total_taxcombustibleciva', value: taxcombustibleIva.toFixed(2) });
-    transaction.setValue({ fieldId: 'custbody_sdb_total_commission_nac', value: totalCommissionD.toFixed(2) });
-    transaction.setValue({ fieldId: 'custbody_sdb_total_commission_inter', value: totalCommissionI.toFixed(2) });
+    transaction.setValue({ fieldId: 'custbody_sdb_total_commission_nac', value: totalCommissionDFee.toFixed(2) });
+    transaction.setValue({ fieldId: 'custbody_sdb_total_commission_inter', value: totalCommissionIFee.toFixed(2) });
     transaction.setValue({ fieldId: 'custbody_sdb_total_boletos', value: totalboletosSiva.toFixed(2) });
     transaction.setValue({ fieldId: 'custbody_sdb_total_boletosiva', value: totalBoletosIva.toFixed(2) });
     transaction.setValue({ fieldId: 'custbody_sdb_tickets_quantity', value: totalBoletos });

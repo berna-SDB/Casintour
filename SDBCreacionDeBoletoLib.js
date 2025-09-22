@@ -9,6 +9,7 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
 
     function processRequest(requestBody) {
         try {
+            var history = createHistory(requestBody)
             const ticketType = requestBody.tipoTicket;
             switch (ticketType) {
                 case "EX":
@@ -40,7 +41,6 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
                         }
 
                         if (totalAmmount > 0) { //Si tiene diferencias de monto entonces si creo los registros correspondientes.
-                            createPurchaseBill(requestBody, ticketGroup, subsidiaryId) //Se crea la Factura de compra al vendor externo (sea intercompany o no la voy a crear desde la subsidiaria actual)
                             if (subsidiaryId != customer.subsidiaryId) {//Caso intercompany entonces agrego factura de compra y venta.
                                 createIntercompanyInvoice(requestBody, subsidiaryId, customer.subsidiaryId, ticketGroup)
                                 createPurchaseIntercompanyBill(requestBody, customer.subsidiaryId, ticketGroup, subsidiaryId)
@@ -80,7 +80,6 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
                         }
                     }
                     if (totalAmmount > 0 && customerData) { //Si tiene diferencias de monto y se encontró customer entonces si creo los registros correspondientes.
-                        createPurchaseBill(requestBody, ticketGroup, subsidiaryId) //Se crea la Factura de compra al vendor externo (sea intercompany o no la voy a crear desde la subsidiaria actual)
                         if (subsidiaryId != customerData.subsidiaryId) {//Caso intercompany entonces agrego factura de compra y venta.
                             createIntercompanyInvoice(requestBody, subsidiaryId, customerData.subsidiaryId, ticketGroup)
                             createPurchaseIntercompanyBill(requestBody, customerData.subsidiaryId, ticketGroup, subsidiaryId)
@@ -105,8 +104,6 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
                                 createCards(ticket.tarjetas, ticketId);
                             }
                         })
-
-                        createPurchaseBill(requestBody, ticketGroup, subsidiaryId) //Se crea la Factura de compra al vendor externo (sea intercompany o no la voy a crear desde la subsidiaria actual)
                         if (subsidiaryId != customer.subsidiaryId) {//Caso intercompany entonces agrego factura de compra y venta.
                             createIntercompanyInvoice(requestBody, subsidiaryId, customer.subsidiaryId, ticketGroup)
                             createPurchaseIntercompanyBill(requestBody, customer.subsidiaryId, ticketGroup, subsidiaryId)
@@ -127,7 +124,7 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
                 module: 'post',
                 relatedId: requestBody.id,
                 bodyRequest: JSON.stringify(requestBody)
-            });
+            }, history);
             return {
                 success: false,
                 message: error.message || 'Error',
@@ -173,7 +170,9 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
         newTicketRecord.setValue({ fieldId: 'custrecord_void', value: ticket.void });
         newTicketRecord.setValue({ fieldId: 'custrecord_numero', value: ticket.numero });
         newTicketRecord.setValue({ fieldId: 'custrecord_numpasajero', value: ticket.numPasajero });
-        newTicketRecord.setValue({ fieldId: 'custrecord_comision', value: ticket.comision });
+        newTicketRecord.setValue({ fieldId: 'custrecord_sdb_commission_fee_ticket', value: ticket.fee });
+        newTicketRecord.setValue({ fieldId: 'custrecord_sdb_commission_mym_ticket', value: ticket.comisionMym });
+        newTicketRecord.setValue({ fieldId: 'custrecord_sdb_commission_bsp_ticket', value: ticket.comisionBsp });
 
         var boletoId = newTicketRecord.save();
         log.debug('Boleto creado', 'ID: ' + boletoId);
@@ -249,42 +248,6 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
         return routeCreated;
     }
 
-    //crea factura de compra al proveedor externo
-    function createPurchaseBill(requestBody, ticketGroup, subsidiaryId) {
-        var tickets = requestBody.boletos || [];
-        var rutas = (requestBody.routings || []).map(function (r) { return r.ruta; });
-        var rutasStr = rutas.join(', ');
-
-        var billRecord = record.create({
-            type: record.Type.VENDOR_BILL,
-            isDynamic: true
-        });
-
-        var vendorid = getVendor(requestBody.boletos[0].aerolinea.aerolinea);
-        billRecord.setValue({ fieldId: 'entity', value: vendorid });
-        billRecord.setValue({ fieldId: 'subsidiary', value: subsidiaryId });
-        billRecord.setValue({ fieldId: 'custbody_sdb_ticket_group', value: ticketGroup });
-        billRecord.setValue({ fieldId: 'custbody_sdb_created_from', value: true });
-
-        tickets.forEach(function (ticket) {
-            const startLine = billRecord.getLineCount({ sublistId: 'item' });
-            billRecord.selectNewLine({ sublistId: 'item' });
-            billRecord.setCurrentSublistValue({ sublistId: 'item', fieldId: 'item', value: 264 });
-            billRecord.setCurrentSublistValue({ sublistId: 'item', fieldId: 'quantity', value: 1 });
-            billRecord.setCurrentSublistValue({ sublistId: 'item', fieldId: 'custcol_sdb_ticket_number', value: ticket.boleto });
-            billRecord.setCurrentSublistValue({ sublistId: 'item', fieldId: 'custcol_sdb_ticket_route', value: rutasStr });
-            billRecord.commitLine({ sublistId: 'item' });
-
-            const endLine = billRecord.getLineCount({ sublistId: 'item' });
-            setValuesToChargeItems(requestBody, billRecord, ticket, startLine, endLine);
-        });
-
-        var billId = billRecord.save();
-        log.debug('Factura de compra creada', billId);
-
-        return billId;
-    }
-
     //Crea Factura de compra intercompany
     function createPurchaseIntercompanyBill(requestBody, customerSubsidiaryId, ticketGroup, subsidiaryId) {
         var tickets = requestBody.boletos || [];
@@ -313,7 +276,7 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
             billIntercompanyRecord.commitLine({ sublistId: 'item' });
 
             const endLine = billIntercompanyRecord.getLineCount({ sublistId: 'item' });
-            setValuesToChargeItems(requestBody, billIntercompanyRecord, ticket, startLine, endLine);
+            setValuesToChargeItems(billIntercompanyRecord, ticket, startLine, endLine);
         });
 
         var billIntercompanyId = billIntercompanyRecord.save();
@@ -324,26 +287,19 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
 
     function createSalesOrder(requestBody, customer, ticketGroup) {
         var tickets = requestBody.boletos || [];
-        var customerId = customer.customerId;
-        var customerSubsidiaryId = customer.subsidiaryId;
-        var airline = tickets[0].aerolinea;
         var rutas = (requestBody.routings || []).map(function (r) { return r.ruta; });
         var rutasStr = rutas.join(', ');
 
-        var salesOrder = record.create({   //Creo la Sale order desde la subsidiaria real del cliente al cliente final.
-            type: record.Type.SALES_ORDER,
-            isDynamic: true
-        });
-
-        salesOrder.setValue({ fieldId: 'entity', value: customerId });
-        salesOrder.setValue({ fieldId: 'subsidiary', value: customerSubsidiaryId });
-        salesOrder.setValue({ fieldId: 'trandate', value: new Date() });
-        salesOrder.setValue({ fieldId: 'orderstatus', value: "B" }); // 2 = Aprobado
-        salesOrder.setValue({ fieldId: 'custbody_sdb_ticket_group', value: ticketGroup });
-        salesOrder.setValue({ fieldId: 'custbody_sdb_created_from', value: true });
-        salesOrder.setValue({ fieldId: 'custbody_sdb_airline_related', value: airline.aerolinea });
-        salesOrder.setValue({ fieldId: 'custbody_sdb_airline_code', value: airline.code });
-        salesOrder.setValue({ fieldId: 'custbody_sdb_origen', value: requestBody.domInt }); //origen de aerolinea
+        var baseSalesOrderData = {
+            customerId: customer.customerId,
+            customerSubsidiaryId: customer.subsidiaryId,
+            airlineName: tickets[0].aerolinea.aerolinea,
+            airlineCode: tickets[0].aerolinea.code,
+            origen: requestBody.domInt
+        };
+        log.debug("el customerSubsidiaryId es", baseSalesOrderData.customerSubsidiaryId)
+        var salesOrder = createEmptySalesOrder(baseSalesOrderData, ticketGroup)
+        var commissionSalesOrder = createEmptySalesOrder(baseSalesOrderData, ticketGroup)
 
         tickets.forEach(function (ticket) { //por cada boleto creo un grupo con sus taxes
             const startLine = salesOrder.getLineCount({ sublistId: 'item' });
@@ -355,20 +311,36 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
             salesOrder.setCurrentSublistValue({ sublistId: 'item', fieldId: 'custcol_sdb_ticket_route', value: rutasStr });
             salesOrder.commitLine({ sublistId: 'item' });
             const endLine = salesOrder.getLineCount({ sublistId: 'item' });
-            setValuesToChargeItems(requestBody, salesOrder, ticket, startLine, endLine);//Se cargan los valores en los items de recargo por cada boleto
+            setValuesToChargeItems(salesOrder, ticket, startLine, endLine);//Se cargan los valores en los items de recargo por cada boleto
+            addCommission(requestBody, commissionSalesOrder, ticket) //Se agrega la comision en una factura separada
         });
 
-        var salesOrderId;
+        calculateCommissions(requestBody, salesOrder); // calcula los valores de comision mym y comision bsp (son comisiones informativas no van como item)
 
-        if (customer.customerCalendary) {//si tiene calendario de facturacion entonces creamos la orden cerrada
+        var salesOrderId;
+        var commissionSalesOrderId;
+
+        if (customer.customerCalendary) {//si tiene calendario de facturacion entonces creamos las ordenes cerradas
             closeOrder(salesOrder)
             salesOrderId = salesOrder.save();
             log.debug("#####Sales Order creada URL ", "https://11341630-sb1.app.netsuite.com/app/accounting/transactions/salesord.nl?id=" + salesOrderId + "&whence=");
+
+            if (commissionSalesOrder.getLineCount({ sublistId: 'item' }) > 0) {
+                closeOrder(commissionSalesOrder)
+                commissionSalesOrderId = commissionSalesOrder.save();
+                log.debug("#####Sales Order por comisiones creada URL ", "https://11341630-sb1.app.netsuite.com/app/accounting/transactions/salesord.nl?id=" + commissionSalesOrderId + "&whence=");
+            }
         }
         else { //Entonces facturamos al momento 
             salesOrderId = salesOrder.save();
             log.debug("#####Sales Order creada URL ", "https://11341630-sb1.app.netsuite.com/app/accounting/transactions/salesord.nl?id=" + salesOrderId + "&whence=");
             createInvoice(salesOrderId, ticketGroup, requestBody);
+
+            if (commissionSalesOrder.getLineCount({ sublistId: 'item' }) > 0) {
+                commissionSalesOrderId = commissionSalesOrder.save();
+                log.debug("#####Sales Order por comisiones creada URL ", "https://11341630-sb1.app.netsuite.com/app/accounting/transactions/salesord.nl?id=" + commissionSalesOrderId + "&whence=");
+                createInvoice(commissionSalesOrderId, ticketGroup, requestBody);
+            }
         }
         return salesOrderId;
     }
@@ -393,11 +365,7 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
     //crea invoice desde la subsidiaria actual hacia la subsidiaria del cliente 
     function createIntercompanyInvoice(requestBody, subsidiaryId, customerSubsidiaryId, ticketGroup) {
         var tickets = requestBody.boletos || [];
-        var subsidiaryRepresentativeId = getSubsidiaryClientRepresentative(subsidiaryId);
         var subsidiaryRepresentativeCustomerId = getSubsidiaryClientRepresentative(customerSubsidiaryId);
-
-        log.debug(" subsidiaryRepresentativeId es " + subsidiaryRepresentativeId)
-        log.debug(" subsidiaryRepresentativeCustomerId es " + subsidiaryRepresentativeCustomerId)
 
         // Si es intercompany: Invoice desde la subsidiaria actual hacia la del cliente
         var intercompanyInvoice = record.create({
@@ -412,7 +380,6 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
 
         tickets.forEach(function (ticket) {
             const startLine = intercompanyInvoice.getLineCount({ sublistId: 'item' });
-
             intercompanyInvoice.selectNewLine({ sublistId: 'item' });
             intercompanyInvoice.setCurrentSublistValue({ sublistId: 'item', fieldId: 'item', value: 264 });
             intercompanyInvoice.setCurrentSublistValue({ sublistId: 'item', fieldId: 'quantity', value: 1 });
@@ -420,7 +387,8 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
             intercompanyInvoice.commitLine({ sublistId: 'item' });
 
             const endLine = intercompanyInvoice.getLineCount({ sublistId: 'item' });
-            setValuesToChargeItems(requestBody, intercompanyInvoice, ticket, startLine, endLine);
+            log.debug('Test de llegada')
+            setValuesToChargeItems(intercompanyInvoice, ticket, startLine, endLine);
         });
 
         var intercompanyInvoiceId = intercompanyInvoice.save();
@@ -434,7 +402,6 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
         let totalTc = 0;
         let totalCash = 0;
         let comission = 0;
-
 
         // Recorrer boletos buscando montos de efectivo y tarjeta
         requestBody.boletos.forEach(ticket => {
@@ -641,16 +608,24 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
         return customerRep;
     }
 
-    function addCommission(requestBody, order, ticket, endLine) {
+    function addCommission(requestBody, commissionOrder, ticket) {
         var orig = requestBody.domInt;
-        var line = endLine;
-
-        if (ticket.comision > 0) {
+        if (ticket.fee > 0) {
             if (orig == "I") { //Si es internacional comision internacional 
-                insertItem(order, line, 283, ticket.comision)
+                commissionOrder.selectNewLine({ sublistId: 'item' });
+                commissionOrder.setCurrentSublistValue({ sublistId: 'item', fieldId: 'item', value: 283 });
+                commissionOrder.setCurrentSublistValue({ sublistId: 'item', fieldId: 'quantity', value: 1 });
+                commissionOrder.setCurrentSublistValue({ sublistId: 'item', fieldId: 'rate', value: ticket.fee });
+                commissionOrder.setCurrentSublistValue({ sublistId: 'item', fieldId: 'custcol_sdb_ticket_number', value: ticket.boleto });
+                commissionOrder.commitLine({ sublistId: 'item' });
             }
             else if (orig == "D") { //si es local comision nacional 
-                insertItem(order, line, 282, ticket.comision)
+                commissionOrder.selectNewLine({ sublistId: 'item' });
+                commissionOrder.setCurrentSublistValue({ sublistId: 'item', fieldId: 'item', value: 283 });
+                commissionOrder.setCurrentSublistValue({ sublistId: 'item', fieldId: 'quantity', value: 1 });
+                commissionOrder.setCurrentSublistValue({ sublistId: 'item', fieldId: 'rate', value: ticket.fee });
+                commissionOrder.setCurrentSublistValue({ sublistId: 'item', fieldId: 'custcol_sdb_ticket_number', value: ticket.boleto });
+                commissionOrder.commitLine({ sublistId: 'item' });
             }
         }
         else {
@@ -658,7 +633,7 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
         }
     }
 
-    function setValuesToChargeItems(requestBody, order, ticket, startLine, endLine) {
+    function setValuesToChargeItems(order, ticket, startLine, endLine) {
         deleteItem(order, -3, startLine, endLine) //elimino el item que inicializa el grupo 
         var baseTaxEc = Math.round(((ticket.taxec * 100) / 15) * 100) / 100; //Para redondear y no de diferencias por decimales muy pequeños
         let lineNumber = startLine + 1;
@@ -711,8 +686,6 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
         lineNumber++;
         insertItem(order, lineNumber, 278, ticket.taxotro)
         lineNumber++
-
-        addCommission(requestBody, order, ticket, lineNumber)
     }
 
     function insertItem(order, line, itemId, rate) {
@@ -905,7 +878,70 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
         });
     }
 
-    function logError(e, context = {}) {
+    function calculateCommissions(requestBody, salesOrder) { //Se encarga solo de carcular la comision bsp y comision mym (el fee es una comision que va como articulo, estas comisiones son informativas)
+        var totalCommissionMYMNac = 0;
+        var totalCommissionMYMInter = 0;
+        var totalCommissionBSPNac = 0;
+        var totalCommissionBSPInter = 0;
+
+        requestBody.boletos.forEach(function (ticket) {
+            var comisionMym = parseFloat(ticket.comisionMym || 0);
+            var comisionBsp = parseFloat(ticket.comisionBsp || 0);
+
+            if (requestBody.domInt === "I") {
+                totalCommissionMYMInter += comisionMym;
+                totalCommissionBSPInter += comisionBsp;
+            } else if (requestBody.domInt === "D") {
+                totalCommissionMYMNac += comisionMym;
+                totalCommissionBSPNac += comisionBsp;
+            }
+        });
+
+        // Setear los valores en la Sales Order
+        salesOrder.setValue({ fieldId: 'custbody_sdb_total_commissionmym_nac', value: totalCommissionMYMNac });
+        salesOrder.setValue({ fieldId: 'custbody_sdb_total_commissionmym_inter', value: totalCommissionMYMInter });
+        salesOrder.setValue({ fieldId: 'custbody_sdb_total_commissionbsp_nac', value: totalCommissionBSPNac });
+        salesOrder.setValue({ fieldId: 'custbody_sdb_total_commissionbsp_inter', value: totalCommissionBSPInter });
+    }
+
+    function createEmptySalesOrder(baseSalesOrderData, ticketGroup) {
+        var salesOrder = record.create({
+            type: record.Type.SALES_ORDER,
+            isDynamic: true
+        });
+        salesOrder.setValue({ fieldId: 'subsidiary', value: baseSalesOrderData.subsidiaryId });
+        salesOrder.setValue({ fieldId: 'entity', value: baseSalesOrderData.customerId });
+        salesOrder.setValue({ fieldId: 'trandate', value: new Date() });
+        salesOrder.setValue({ fieldId: 'orderstatus', value: "B" });
+        salesOrder.setValue({ fieldId: 'custbody_sdb_ticket_group', value: ticketGroup });
+        salesOrder.setValue({ fieldId: 'custbody_sdb_created_from', value: true });
+        salesOrder.setValue({ fieldId: 'custbody_sdb_airline_related', value: baseSalesOrderData.airlineName });
+        salesOrder.setValue({ fieldId: 'custbody_sdb_airline_code', value: baseSalesOrderData.airlineCode });
+        salesOrder.setValue({ fieldId: 'custbody_sdb_origen', value: baseSalesOrderData.origen });
+
+        return salesOrder;
+    }
+
+    function createHistory(requestBody) {
+        var history = record.create({
+            type: "customrecord_sdb_history_request",
+            isDynamic: true
+        });
+        history.setValue({ fieldId: 'name', value: `Solicitud ${requestBody.id} ` });
+        history.setValue({ fieldId: 'custrecord_sdb_request_id', value: requestBody.id });
+        history.setValue({ fieldId: 'custrecord_sdb_request_json', value: JSON.stringify(requestBody) });
+
+        var historyCreated = history.save();
+        if (historyCreated) {
+            log.debug(`historial creado para la solicitud ${requestBody.id} `, historyCreated);
+        }
+        else {
+            log.error('Error en createHistory')
+        }
+        return historyCreated;
+    }
+
+    function logError(e, context = {}, history) {
         try {
             const errorLog = record.create({
                 type: 'customrecord_sdb_error_log',
@@ -915,8 +951,9 @@ define(['N/record', 'N/search', 'N/error'], function (record, search, error) {
             errorLog.setValue({ fieldId: 'name', value: `Error en solicitud ${context.relatedId.toString()} - ${new Date().toISOString()}` });
             errorLog.setValue({ fieldId: 'custrecord_sdb_error_fecha', value: new Date() });
             errorLog.setValue({ fieldId: 'custrecord_sdb_error_modulo', value: context.module || 'Sin nombre' });
-            errorLog.setValue({ fieldId: 'custrecord_sdb_error_msg', value: e.message || 'Error sin mensaje' });
-            errorLog.setValue({ fieldId: 'custrecord_sdb_error_stack', value: e.stack || 'Sin stack trace' });
+            errorLog.setValue({ fieldId: 'custrecord_sdb_error_msg', value: JSON.stringify(e.message) || 'Error sin mensaje' });
+            errorLog.setValue({ fieldId: 'custrecord_sdb_error_stack', value: JSON.stringify(e.stack) || 'Sin stack trace' });
+            errorLog.setValue({ fieldId: 'custrecord_sdb_history_related', value: history });
 
             if (context.relatedId !== undefined && context.relatedId !== null) {
                 errorLog.setValue({ fieldId: 'custrecord_sdb_id_solicitud', value: context.relatedId.toString() });
